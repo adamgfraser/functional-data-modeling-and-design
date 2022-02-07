@@ -4,7 +4,7 @@ object welcome {
   //
   // Please join and say hello:
   //
-  // CHAT ROOM: ???
+  // CHAT ROOM: https://discord.gg/XQBWH2kR
   //
   // Please git clone and build:
   //
