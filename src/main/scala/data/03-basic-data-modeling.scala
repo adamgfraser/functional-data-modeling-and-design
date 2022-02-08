@@ -10,26 +10,29 @@ object product_modeling {
   /**
    * EXERCISE 1
    *
-   * Using a case class, create a model of a product, which has a name, description, and a price.
+   * create a model of a product, which has a name, description, and a price.
    *
    */
-  final case class Product()
+  final case class Product(name: String, description: String, price: Double)
+
+  trait URL
 
   /**
    * EXERCISE 2
    *
-   * Using a case class, create a model of a a user profile, which has a picture URL, and text-
+   * create a model of a a user profile, which has a picture URL, and text-
    * based location (indicating the geographic area where the user is from).
    */
-  final case class UserProfile()
+  final case class UserProfile(pictureURL: String, geographicArea: String)
+
 
   /**
    * EXERCISE 3
    *
-   * Using a case class, create a model of an item that can be posted on LinkedIn's feed. This
+   * create a model of an item that can be posted on LinkedIn's feed. This
    * item contains a subject and some text.
    */
-  final case class FeedItem()
+  final case class FeedItem(subject: String, text: String)
 
   /**
    * EXERCISE 4
@@ -37,7 +40,7 @@ object product_modeling {
    * Using a case class, create a model of an event, which has an event id, a timestamp, and a
    * map of properties (String/String).
    */
-  final case class Event()
+  final case class Event(id: Int, ts: Int, properties: Map[String,String])
 }
 
 /**
@@ -48,13 +51,17 @@ object sum_modeling {
   /**
    * EXERCISE 1
    *
-   * Using an enum, create a model of a color, which could be `Red`, `Green`, `Blue`, or `Custom`,
+   * Create a model of a color, which could be `Red`, `Green`, `Blue`, or `Custom`,
    * and if `Custom`, then it should store `red`, `green`, and `blue` components individually, as
    * an integer (`Int`) value.
    */
   sealed trait Color
+
   object Color {
     case object Red extends Color
+    case object Green extends Color
+    case object Blue extends Color
+    final case class Custom(red: Int, green: Int, blue: Int) extends Color
   }
 
   /**
@@ -63,10 +70,48 @@ object sum_modeling {
    * Using an enum, create a model of an web event, which could be either a page load for a certain
    * URL, a click on a particular button, or a click to a specific URL.
    */
+  // sealed trait WebEvent
+  // object WebEvent {
+  //   final case class PageLoad(url: String) extends WebEvent
+  //   final case class ButtonClick(id: Int) extends WebEvent
+  //   final case class URLClick(url: String) extends WebEvent
+  // }
+
+  // Employees
+    // Executive
+    // Management
+    // Line
+
+  // Employees
+    // Supervisory
+      // Executive
+      // Management
+    // Non-supervisory
+      // Line
+
   sealed trait WebEvent
   object WebEvent {
-    final case class PageLoad(url: String) extends WebEvent
+    final case class PageLoadEvent(url: String) extends WebEvent
+    sealed trait ClickEvent extends WebEvent
+    object ClickEvent {
+      final case class ButtonClickEvent(id: Int) extends ClickEvent
+      final case class URLClickEvent(url: String) extends ClickEvent
+    }
   }
+
+  // type Button
+
+  // sealed trait Click[+A] extends WebEvent
+  // object Click {
+  //   final case class Button(button: Button) extends Click[Button]
+  //   final case class URL(value: String)     extends Click[URL]
+  // }
+
+
+  // sealed trait WebEvent
+  // object WebEvent {
+  //   final case class PageLoad(url: String)         extends WebEvent
+  // }
 
   /**
    * EXERCISE 3
@@ -90,6 +135,14 @@ object sum_modeling {
   sealed trait JsonPipelineStep
   object JsonPipeline {
     final case class Transform(fn: Json => Json) extends JsonPipelineStep
+    final case class Aggregate(aggregation: JsonAggregation) extends JsonPipelineStep
+    final case class SaveToFile(path: String) extends JsonPipelineStep
+  }
+
+  sealed trait JsonAggregation
+
+  object JsonAggregation {
+
   }
 }
 
@@ -99,6 +152,8 @@ object sum_modeling {
  */
 object mixed_modeling {
 
+  // emum === sealed trait plus case objects or case classes in Scala 2
+
   /**
    * EXERCISE 1
    *
@@ -106,7 +161,13 @@ object mixed_modeling {
    * would consist of a number of items, each with a certain price, and an overall price, including
    * shipping and handling charges.
    */
-  type Order = TODO
+  final case class Order(items: Map[Item, Int], shippingAndHandling: Double) {
+    def totalPrice: Double = items.foldLeft(0.0) {
+      case (acc, (item, count)) => acc + item.price * count
+    } + shippingAndHandling
+  }
+
+  final case class Item(description: String, price: Double)
 
   /**
    * EXERCISE 2
@@ -114,7 +175,7 @@ object mixed_modeling {
    * Using only case classes and enums, create a model of an `Email`, which contains a subject,
    * a body, a recipient, and a from address.
    */
-  type Email = TODO
+  final case class Email(subject: String, body: String, recipient: String, from: String)
 
   /**
    * EXERCISE 3
@@ -123,7 +184,21 @@ object mixed_modeling {
    * system, which could consist of predefined elements, such as a news feed, a photo gallery,
    * and other elements, arranged in some well-defined way relative to each other.
    */
-  type PageLayout = TODO
+  final case class PageLayout(elements: List[PageElement])
+
+  sealed trait PageElement
+  object PageElement {
+    final case object NewsFeed extends PageElement
+    final case class PhotoGallery(photos: List[String]) extends PageElement
+    final case class BlankSpace(height: Int) extends PageElement
+  }
+
+  // Could consist of???
+  // arranged in some well-defined way relative to each other.
+  // Map(France -> Paris, UK -> London) === Map(UK -> London, France -> Paris)
+  // List(a, b, c)
+  // Option - 0 or 1 values
+  // List or most collections  - 0 or N values
 
   /**
    * EXERCISE 4

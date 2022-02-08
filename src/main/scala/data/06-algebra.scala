@@ -1,9 +1,106 @@
 package fdm
+import scala.util.Failure
+import scala.util.Success
 
 /**
  * There are several types in Scala that have special meaning.
  */
 object special_types {
+
+  // read-permission     write-permission
+
+  // You have neither
+  // You have both
+  // You can read but not write
+  // There is no such thing as write but not read
+
+  final case class Permission(canRead: Boolean, canWrite: Boolean)
+
+  val myPermission: Permission = ???
+
+  myPermission match {
+    case Permission(true, true)   => println("You have read write")
+    case Permission(true, false)  => println("You can read only")
+    case Permission(false, true)  => ??? // impossible
+    case Permission(false, false) => println("Get out of our system")
+  }
+
+  // Types can have sizes
+  // Cardinality
+  // How many different values can a type have?
+
+  // Nothing - 0
+  // Unit    - 1
+  // Boolean - 2 - true, false
+
+  // sum types
+  // product types
+
+  // Either[Boolean, Boolean] - four possible values
+  // Left(false), Left(true) ,Right(false), Right(true)
+
+  // Either[Unit, Boolean] - three possible values
+  val first: Either[Unit, Boolean]  = Left(())
+  val second: Either[Unit, Boolean] = Right(true)
+  val third: Either[Unit, Boolean]  = Right(false)
+
+  // Either[A, B]
+  // A has cardinary X
+  // B has cardinality of Y
+  // What's the cardinary of Either[A, B]?
+  // A + B
+
+  // (Boolean, Boolean)
+  // its a product type!
+  // A * B
+
+  // A + 1
+  // Either[Unit, A] <-> Option[A]
+
+  // A + 1
+  // sealed trait Option[A]
+
+  // object Option {
+  //   case object Empty extends Option[A] // Like () only has one possible value
+  //   case class Some[A](value: A) extends Option[A] // A possible values
+  // }
+
+  // Option is like an either when the error contains no useful information
+
+  final case class Equivalence[A, B](to: A => B, from: B => A)
+
+  object Equivalence {
+
+    def optionEitherUnitEquivalence[A]: Equivalence[Option[A], Either[Unit, A]] =
+      Equivalence(
+        option =>
+          option match {
+            case None        => Left(())
+            case Some(value) => Right(value)
+          },
+        either =>
+          either match {
+            case Left(_)      => None
+            case Right(value) => Some(value)
+          }
+      )
+  }
+
+  // type MyComplexType = Either[Option[A], Either[B, C]]
+
+  // Left(None)
+  // Left(A)
+  // Right(Left(B))
+  // Right(Right(C))
+
+  sealed trait MyComplexType
+
+  object MyComplexType {
+    case object ThereWasNoValue extends MyComplexType
+    final case class GotAnA[A](a: A) extends MyComplexType
+    final case class GotaB[B](b: B) extends MyComplexType
+    final case class GotaC[C](c: C) extends MyComplexType
+  }
 
   /**
    * EXERCISE 1
@@ -11,7 +108,7 @@ object special_types {
    * Find a type existing in the Scala standard library, which we will call `One`, which has a
    * single "inhabitant" (i.e. there exists a single unique value that has this type).
    */
-  type One = TODO
+  type One = Unit
 
   /**
    * EXERCISE 2
@@ -19,7 +116,7 @@ object special_types {
    * Find a type existing in the Scala standard library, which we will call `Zero`, which has no
    * "inhabitants" (i.e. there exists no values of this type).
    */
-  type Zero = TODO
+  type Zero = Nothing
 
   /**
    * EXERCISE 3
@@ -38,6 +135,9 @@ object special_types {
  */
 object algebra {
 
+  // (1, 2) = 1 * 2 = 2
+  // (2, 1) = 2 * 1 = 2
+
   /**
    * EXERCISE 3
    *
@@ -50,8 +150,14 @@ object algebra {
    * equivalence is called an "isomorphism", and it can be regarded as a weaker but more useful
    * definition of equality.
    */
-  def toBA[A, B](ab: (A, B)): (B, A) = TODO
-  def toAB[A, B](ba: (B, A)): (A, B) = TODO
+  def toBA[A, B](ab: (A, B)): (B, A) =
+    ab match {
+      case (a, b) => (b, a)
+    }
+  def toAB[A, B](ba: (B, A)): (A, B) =
+    ba match {
+      case (b, a) => (a, b)
+    }
 
   def roundtripAB[A, B](t: (A, B)): (A, B) = toAB(toBA(t))
   def roundtripBA[A, B](t: (B, A)): (B, A) = toBA(toAB(t))
@@ -65,8 +171,16 @@ object algebra {
    * Although the eithers Either[A, B] and Either[B, A] are not exactly the s;ame, they are
    * isomorphic, as with tuples.
    */
-  def toBA[A, B](ab: Either[A, B]): Either[B, A] = TODO
-  def toAB[A, B](ba: Either[B, A]): Either[A, B] = TODO
+  def toBA[A, B](ab: Either[A, B]): Either[B, A] =
+    ab match {
+      case Left(a)  => Right(a)
+      case Right(b) => Left(b)
+    }
+  def toAB[A, B](ba: Either[B, A]): Either[A, B] =
+    ba match {
+      case Left(b)  => Right(b)
+      case Right(a) => Left(a)
+    }
 
   def roundtripAB[A, B](t: Either[A, B]): Either[A, B] = toAB(toBA(t))
   def roundtripBA[A, B](t: Either[B, A]): Either[B, A] = toBA(toAB(t))
@@ -76,8 +190,8 @@ object algebra {
    *
    * As with multiplication of numbers, we also have `A * 1` is the same as `A`.
    */
-  def withUnit[A](v: A): (A, Unit)    = TODO
-  def withoutUnit[A](v: (A, Unit)): A = TODO
+  def withUnit[A](v: A): (A, Unit)    = (v, ())
+  def withoutUnit[A](v: (A, Unit)): A = v._1
 
   def roundtripUnit1[A](v: A): A                 = withoutUnit(withUnit(v))
   def roundtripUnit2[A](t: (A, Unit)): (A, Unit) = withUnit(withoutUnit(t))
@@ -87,8 +201,15 @@ object algebra {
    *
    * As with multiplication of numbers, we also have `A + 0` is the same as `A`.
    */
-  def withNothing[A](v: A): Either[A, Nothing]    = TODO
-  def withoutNothing[A](v: Either[A, Nothing]): A = TODO
+  def withNothing[A](v: A): Either[A, Nothing]    =
+    Left(v)
+  def withoutNothing[A](v: Either[A, Nothing]): A =
+    v match {
+      case Left(a)  => a
+      case Right(e) => e
+    }
+
+    // final case Right(a: A) extends Either
 
   def roundtripNothing1[A](v: A): A                                   = withoutNothing(withNothing(v))
   def roundtripNothing2[A](t: Either[A, Nothing]): Either[A, Nothing] = withNothing(withoutNothing(t))
@@ -98,8 +219,8 @@ object algebra {
    *
    * As with multiplication of numbers, we also have `A * 0` is the same as `0`.
    */
-  def withValue[A](v: Nothing): (A, Nothing)    = TODO
-  def withoutValue[A](v: (A, Nothing)): Nothing = TODO
+  def withValue[A](v: Nothing): (A, Nothing)    = (v, v)
+  def withoutValue[A](v: (A, Nothing)): Nothing = v._2
 
   def roundtripValue1(v: Nothing): Nothing              = withoutValue(withValue(v))
   def roundtripValue2[A](t: (A, Nothing)): (A, Nothing) = withValue(withoutValue(t))
@@ -110,10 +231,31 @@ object algebra {
    * Algebraic data types follow the distributive property, such that `A * (B + C) = A * B + A * C`.
    */
   def distribute[A, B, C](tuple: (A, Either[B, C])): Either[(A, B), (A, C)] = TODO
-  def factor[A, B, C](either: Either[(A, B), (A, C)]): (A, Either[B, C])    = TODO
+  def factor[A, B, C](either: Either[(A, B), (A, C)]): (A, Either[B, C])    =
+    either match {
+      case Left((a, b))  => (a, Left(b))
+      case Right((a, c)) => (a, Right(c))
+    }
 
   def roundtripDist1[A, B, C](t: (A, Either[B, C])): (A, Either[B, C])           = factor(distribute(t))
   def roundtripDist2[A, B, C](e: Either[(A, B), (A, C)]): Either[(A, B), (A, C)] = distribute(factor(e))
+}
+
+// sealed trait Employee
+
+// object Employee {
+
+//   final case class Manager(name: String)
+//   final case class Engineer(name: String)
+// }
+
+final case class Employee(name: String, role: Role)
+
+sealed trait Role
+
+case object Role {
+  case object Manager extends Role
+  case object Engineer extends Role
 }
 
 /**
@@ -177,8 +319,25 @@ object algebraic_equivalence {
    * Write out the algebraic definitions of both types, and show they are equivalent.
    */
   type ComplexEither = Either[String, Option[Int]]
-  type Answer1
-  type SimplerEither = Either[Answer1, Int]
+  // type Answer1 = Option[String]
+  type SimplerEither = Either[Option[String], Int]
+
+  // type Pull[E, A] = Either[Option[E], A]
+
+  // Three possibilities:
+  // 1. Stream is done with an error
+  // 2. Stream is done with end of stream signal
+  // 3. Stream has a value right now
+
+  sealed trait Pull[+E, +A] 
+
+  // How many possibilities?
+  // E + A + 1
+  object Pull {
+    case object Done extends Pull[Nothing, Nothing]
+    case class Error[E](e: E) extends Pull[E, Nothing]
+    case class Next[A](a: A) extends Pull[Nothing, A]
+  }
 
   /**
    * EXERCISE 2
@@ -190,7 +349,7 @@ object algebraic_equivalence {
    * equivalent.
    */
   type Answer2
-  type NewOption[+A] = Either[Answer2, A]
+  type NewOption[+A] = Either[Unit, A]
 
   /**
    * EXERCISE 3
@@ -202,6 +361,35 @@ object algebraic_equivalence {
    * equivalent.
    */
   type Answer3
-  type NewTry[+A] = Either[Answer3, A]
+  type NewTry[+A] = Either[Throwable, A]
 
+  import scala.util.Try
+
+  // sealed trait Try[+A]
+
+
+  // // A + T
+  // object Try {
+  //   case class Success[+A](value: A) extends Try[A]
+  //   case class Failure(t: Throwable) extends Try[Nothing]
+  // }
+
+  final case class Equivalence[A, B](to: A => B, from: B => A)
+
+  object Equivalence {
+
+    def tryEitherThrowableEquivalence[A]: Equivalence[Try[A], Either[Throwable, A]] =
+      Equivalence(
+        scalaTry =>
+          scalaTry match {
+            case Failure(exception) => Left(exception)
+            case Success(value) => Right(value)
+          },
+        either =>
+          either match {
+            case Left(exception) => Failure(exception)
+            case Right(value) => Success(value)
+          }
+      )
+  }
 }

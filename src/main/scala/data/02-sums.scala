@@ -20,13 +20,24 @@ import java.util.Currency
  */
 object eithers {
 
+  // Either an A or a B (but not both, and always at least one)
+  // North South East West
+
+  // product types
+  // anonymous ones - tuples
+  // user defined ones - case classes
+
+  // sum types
+  // anonymous ones - either
+  // user defined ones - sealed trait with subtypes
+
   /**
    * EXERCISE 1
    *
    * Using both a type alias, and Scala's `Either` type, construct a type called `IntOrString` that
    * can either hold an `Int` or a `String`.
    */
-  type IntOrString = TODO
+  type IntOrString = Either[Int, String]
 
   /**
    * EXERCISE 2
@@ -34,7 +45,7 @@ object eithers {
    * Construct a value of type `IntOrString` that contains the string "Sherlock", using the
    * `Right(_)` constructor for `Either`.
    */
-  lazy val intOrString: IntOrString = TODO
+  lazy val intOrString: IntOrString = Left(42) //Right("Sherlock")
 
   /**
    * EXERCISE 3
@@ -42,7 +53,7 @@ object eithers {
    * Using both a type alias, and Scala's `Either` type, construct a type called
    * `PaymentMethod` that can be either `CreditCard` or `WireTransfer`.
    */
-  type PaymentMethod = TODO
+  type PaymentMethod = Either[CreditCard, WireTransfer]
 
   final case class CreditCard()
   final case class WireTransfer()
@@ -53,7 +64,8 @@ object eithers {
    * Construct a value of type `PaymentMethod` that contains a value of type `CreditCard`, using the
    * `Left(_)` constructor for `Either`.
    */
-  lazy val paymentMethod: PaymentMethod = TODO
+  lazy val paymentMethod: PaymentMethod =
+    Left(CreditCard())
 }
 
 /**
@@ -74,7 +86,7 @@ object eithers {
  * composition"  of other types, where each term of the product can be accessed by a user-defined
  * (unique) label.
  */
-object enum_basics {
+object enum_basics extends scala.App {
 
   /**
    * EXERCISE 1
@@ -84,7 +96,65 @@ object enum_basics {
    */
   sealed trait ChessPieceType
   object ChessPieceType {
-    case object Pawn extends ChessPieceType
+    case object Pawn   extends ChessPieceType
+    case object Knight extends ChessPieceType
+    case object Bishop extends ChessPieceType
+    case object Rook   extends ChessPieceType
+    case object King   extends ChessPieceType
+    case object Queen  extends ChessPieceType
+
+    val pawn: ChessPieceType =
+      Pawn
+  }
+
+  val pawn1: ChessPieceType.Pawn.type = ChessPieceType.Pawn
+  val pawn2: ChessPieceType           = ChessPieceType.pawn
+
+  pawn1 == pawn2 // true
+
+  sealed trait Duration {
+    def +(other: Duration): Duration =
+      ???
+  }
+  case object Zero              extends Duration
+  case class Finite(value: Int) extends Duration
+
+  def zero: Duration =
+    Zero
+
+  val durations = List(Finite(1), Finite(2), Finite(3))
+
+  durations.foldLeft(zero)(_ + _)
+
+  // case class
+  // case object - class with no parameters
+
+  // final case class Person(name: String)
+  final case class Queen()
+
+  val queen1 = Queen()
+  val queen2 = Queen()
+  queen1 == queen2
+
+  sealed trait ValidationResult[+A] {
+    def computationName: String
+    def resultOption: Option[A] =
+      this match {
+        case ValidationResult.Success(_, result) => Some(result)
+        case ValidationResult.Failure(_, e)      => None
+      }
+  }
+
+  object ValidationResult {
+    case class Success[A](computationName: String, result: A) extends ValidationResult[A]
+    case class Failure(computationName: String, e: Throwable) extends ValidationResult[Nothing]
+  }
+
+  sealed trait ProcessingResult
+
+  object ProcessingResult {
+    case class Success() extends ProcessingResult
+    case class Failure() extends ProcessingResult
   }
 
   /**
@@ -93,7 +163,8 @@ object enum_basics {
    * Using the enum that you created, construct a value of type `ChessPieceType` that holds a
    * `Pawn`.
    */
-  lazy val chessPieceType: ChessPieceType = TODO
+  lazy val chessPieceType: ChessPieceType =
+    ChessPieceType.pawn
 
   /**
    * EXERCISE 3
@@ -104,6 +175,14 @@ object enum_basics {
   sealed trait Currency
   object Currency {
     final case class USD(dollars: Int, cents: Int) extends Currency
+    final case class EUR(euros: Int, cents: Int)   extends Currency
+    final case class MXN(pesos: Int, centavo: Int) extends Currency
+
+    def usd(dollars: Int, cents: Int): Option[Currency] =
+      if (dollars < 0 || cents < 0 || cents > 99)
+        None
+      else
+        Some(USD(dollars, cents))
   }
 
   /**
@@ -112,7 +191,8 @@ object enum_basics {
    * Using the enum that you created, construct a value of type `Currency` that holds 9 dollars and
    * 9 cents of USD.
    */
-  lazy val currency: Currency = TODO
+  lazy val currency: Currency =
+    Currency.USD(dollars = 9, cents = 9)
 }
 
 /**
@@ -143,7 +223,10 @@ object enum_utilities {
    * points of the card. Otherwise, ignore it. Note: You can match all values using the wildcard
    * (`_`), e.g. `case _ => `.
    */
-  card todo
+  card match {
+    case Card.Spades(points) => println(points)
+    case _                   =>
+  }
 
   /**
    * EXERCISE 2
@@ -152,7 +235,10 @@ object enum_utilities {
    * match on `card` with a case that looks for `Spades(10)` (a spades card with 10 points), and
    * then have a catch all case. Print out different messages in each case.
    */
-  card todo
+  card match {
+    case Card.Spades(10) => println("Matched!")
+    case _               => println("Did not match!")
+  }
 
   /**
    * EXERCISE 3
@@ -161,7 +247,10 @@ object enum_utilities {
    * match on `card` again, and have two cases: one that looks for `Spades` with points `>= 10`,
    * and a catch-all. Print out distinct messages in each case.
    */
-  card todo
+  card match {
+    case Card.Spades(p) if p >= 10 => println(p)
+    case _                         => println("not spades with points >=10")
+  }
 
   /**
    * EXERCISE 4
@@ -173,7 +262,10 @@ object enum_utilities {
    *
    * In this exercise, match for `Spades`, give it a name `spades`, and print it out.
    */
-  card todo
+  card match {
+    case cards @ Card.Spades(points) => println(cards)
+    case _                           =>
+  }
 
   /**
    * EXERCISE 5
@@ -184,7 +276,10 @@ object enum_utilities {
    *
    * In this exercise, match for either Spades or Diamonds, and print out a message.
    */
-  card todo
+  card match {
+    case Card.Spades(_) | Card.Diamonds(_) => println("got a spade or a diamond")
+    case _                                 =>
+  }
 }
 
 /**
@@ -201,12 +296,12 @@ object enum_generics {
    * called `Data`, and using `Data` for the type of the field `Data` that is stored in some of the
    * cases of the enum.
    */
-  sealed trait AdvertisingEvent
+  sealed trait AdvertisingEvent[+Data]
   object AdvertisingEvent {
-    case object None                                                           extends AdvertisingEvent
-    final case class Impression(pageUrl: String, data: String)                 extends AdvertisingEvent
-    final case class Click(pageUrl: String, elementId: String, data: String)   extends AdvertisingEvent
-    final case class Action(pageUrl: String, actionName: String, data: String) extends AdvertisingEvent
+    case object None                                                               extends AdvertisingEvent[Nothing]
+    final case class Impression[Data](pageUrl: String, data: Data)                 extends AdvertisingEvent[Data]
+    final case class Click[Data](pageUrl: String, elementId: String, data: Data)   extends AdvertisingEvent[Data]
+    final case class Action[Data](pageUrl: String, actionName: String, data: Data) extends AdvertisingEvent[Data]
   }
 
   /**
@@ -215,14 +310,29 @@ object enum_generics {
    * Create a type alias called `AdvertisingEventString`, which plugs the type `String` into the
    * enum `AdvertisingEvent`, to create an advertising event where the data type is `String`.
    */
-  type AdvertisingEventString = TODO
+  type AdvertisingEventString = AdvertisingEvent[String]
+
+  trait JSON
+
+  val myAdvertisingEvent: AdvertisingEvent[JSON] =
+    AdvertisingEvent.Impression("www.google.com", new JSON {})
+
+  myAdvertisingEvent match {
+    case AdvertisingEvent.None                              =>
+    case AdvertisingEvent.Impression(pageUrl, data)         =>
+    case AdvertisingEvent.Click(pageUrl, elementId, data)   =>
+    case AdvertisingEvent.Action(pageUrl, actionName, data) =>
+  }
+
+  type AdvertisingEventBig = AdvertisingEvent[String]
 
   /**
    * EXERCISE 3
    *
    * Construct an `AdvertisingEvent` that stores data of type `Int`, namely, the integer `42`.
    */
-  lazy val advertisingEvent = TODO
+  lazy val advertisingEvent: AdvertisingEvent[Int] =
+    AdvertisingEvent.Impression("www.google.com", 42)
 
   /**
    * EXERCISE 4
@@ -231,10 +341,23 @@ object enum_generics {
    * `Element`, and using `Element` for the type of the field `value` that is stored in some of the
    * cases of the enum.
    */
-  sealed trait ConcatList
-  object ConcatList {
-    case object Empty                                            extends ConcatList
-    final case class Concat(left: ConcatList, right: ConcatList) extends ConcatList
-    final case class One(value: Int)                             extends ConcatList
+  sealed trait ConcatList[+Element] {
+    def concat[Element1 >: Element](that: ConcatList[Element1]): ConcatList[Element1] =
+      ConcatList.Concat(this, that)
   }
+  object ConcatList {
+    case object Empty                                                                       extends ConcatList[Nothing]
+    final case class Concat[Element](left: ConcatList[Element], right: ConcatList[Element]) extends ConcatList[Element]
+    final case class One[Element](value: Element)                                           extends ConcatList[Element]
+  }
+
+  trait Animal
+  trait Cat extends Animal
+  trait Dog extends Animal
+
+  val cats: ConcatList[Cat] = ???
+  val dogs: ConcatList[Dog] = ???
+
+  val animals = cats concat dogs
+
 }
