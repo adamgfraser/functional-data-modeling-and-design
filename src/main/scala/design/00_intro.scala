@@ -42,6 +42,29 @@ object tour {
       (Schedule.exponential(10.millis).whileOutput(_ < 60.seconds) andThen
         (Schedule.fixed(60.seconds) && Schedule.recurs(100))).jittered
 
+    // data type - Schedule - represents a solution to a particular problem
+    // schedule is a solution to the problem of how to repeat or retry an effect
+
+    // Constructors
+    //    Schedule.exponential, Schedule.fixed, Schedule.recurs
+    //    Constructors of simple solutions to this problem
+
+    // Operators
+    //   Unary operators (operate on just one value) Schedule => Schedule // Datatype => Datatype
+            // whileOutput, jittered
+    //   Binary operators (operate on two values)
+            // (Schedule, Schedule) => Schedule
+            // (Datatype, Datatype) => Datatype
+            // andThen, &&
+            // schedule1 && schedule2 && schedule3
+
+    // No:
+      //  Type classes
+      //  Implicits
+      //  Monad Transformers
+      //  "Fancy types"
+
+
     def flakyRequest(url: String): Task[Response] = ???
 
     lazy val example = flakyRequest("https://google.com").retry(schedule)
@@ -59,6 +82,19 @@ object tour {
     }
 
     val sherlock = User("Sherlock Holmes", Address("Baker Street"))
+
+    sherlock.copy(address = sherlock.address.copy(street = sherlock.address.street.toLowerCase))
+    // sherlock.address.street.toLowerCase
+
+    // 1. Data type that represents the solution to some problem
+       // Lens - represents a solution to the problem of how to update part of a larger data structure
+
+    // 2. Constructors that allow us to build simple solutions to the problem
+       // name, address
+       // alone they were too simple to solve most problems
+
+    // 3. Operators
+       // key operator was >>> binary operator (Lens, Lens) => Lens
 
     /**
      * Composes a lense for 'address' in 'User' together with a lens for
@@ -78,6 +114,23 @@ object tour {
 
   object parsers {
     type Input = String
+
+    // 1. Data type
+    //  Parser is a solution to the problem of how to translate strings into structured data
+
+    // 2. Contructors
+      // Parser.anyChar
+      // Parser.char - parses a single character
+      // Parser.string - parses a string
+
+    // 3. Operators
+      // Unary operators Parser => Parser
+        // repeatedly
+        // string
+        // suchThat
+      // Binary operators (Parser, Parser) => Parser
+         // +
+         // | (orElse)
 
     /**
      * The start of a parser that parses emails.

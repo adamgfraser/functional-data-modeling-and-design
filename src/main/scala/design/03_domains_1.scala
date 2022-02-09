@@ -1,11 +1,22 @@
 package design
+import design.pricing_fetcher.DayOfWeek.Sunday
+import design.pricing_fetcher.DayOfWeek.Monday
+import design.pricing_fetcher.DayOfWeek.Tuesday
+import design.pricing_fetcher.DayOfWeek.Wednesday
+import design.pricing_fetcher.DayOfWeek.Thursday
+import design.pricing_fetcher.DayOfWeek.Friday
+import design.pricing_fetcher.DayOfWeek.Saturday
+import design.Declarative.Number.Literal
+import design.Declarative.Number.Addition
+import design.Declarative.Number.Multiplication
+import design.Declarative.Number.Subtraction
 
 /*
  * INTRODUCTION
  *
  * In Functional Design, a functional domain consists of three things:
  *
- * 1. A functional model, which is an immutable data type that models a 
+ * 1. A functional model, which is an immutable data type that models a
  *    solution to problems in the domain of interest.
  *
  * 2. Constructors that allow constructing solutions to simple problems.
@@ -328,7 +339,18 @@ object etl {
 object pricing_fetcher {
   def fetch(directory: java.io.File, url: java.net.URL, schedule: Schedule): Unit = ???
 
-  sealed trait DayOfWeek
+  sealed trait DayOfWeek { self =>
+    def toOrdinal: Int =
+      self match {
+        case Monday    => 1
+        case Tuesday   => 2
+        case Wednesday => 3
+        case Thursday  => 4
+        case Friday    => 5
+        case Saturday  => 6
+        case Sunday    => 7
+      }
+  }
   object DayOfWeek {
     case object Sunday    extends DayOfWeek
     case object Monday    extends DayOfWeek
@@ -341,6 +363,13 @@ object pricing_fetcher {
 
   final case class Time(minuteOfHour: Int, hourOfDay: Int, dayOfWeek: DayOfWeek, weekOfMonth: Int, monthOfYear: Int)
 
+  // Data type - Schedule
+  // Solution to the problem of whether to do some action at a certain time
+
+  // Constructors
+
+  // Operators
+
   /**
    * EXERCISE 1
    *
@@ -348,7 +377,7 @@ object pricing_fetcher {
    * indicate whether at any given `java.time.Instant`, it is time to fetch the
    * pricing data set.
    */
-  final case class Schedule( /* ??? */ ) { self =>
+  final case class Schedule(run: java.time.Instant => Boolean) { self =>
     /*
      * EXERCISE 2
      *
@@ -356,7 +385,13 @@ object pricing_fetcher {
      * yield the union of those schedules. That is, the fetch will occur
      * only when either of the schedules would have performed a fetch.
      */
-    def union(that: Schedule): Schedule = ???
+    def union(that: Schedule): Schedule =
+      Schedule { instant =>
+        self.run(instant) || that.run(instant)
+      }
+
+    def ||(that: Schedule): Schedule =
+      union(that)
 
     /**
      * EXERCISE 3
@@ -365,7 +400,13 @@ object pricing_fetcher {
      * yield the intersection of those schedules. That is, the fetch will occur
      * only when both of the schedules would have performed a fetch.
      */
-    def intersection(that: Schedule): Schedule = ???
+    def intersection(that: Schedule): Schedule =
+      Schedule { instant =>
+        self.run(instant) || that.run(instant)
+      }
+
+    def &&(that: Schedule): Schedule =
+      intersection(that)
 
     /**
      * EXERCISE 4
@@ -374,8 +415,12 @@ object pricing_fetcher {
      * when the original schedule would fetch, and will always fetch when the
      * original schedule would not fetch.
      */
-    def negate: Schedule = ???
+    def negate: Schedule =
+      Schedule { instant =>
+        !self.run(instant)
+      }
   }
+
   object Schedule {
 
     /**
@@ -384,7 +429,10 @@ object pricing_fetcher {
      * Create a constructor for Schedule that models fetching on specific weeks
      * of the month.
      */
-    def weeks(weeks: Int*): Schedule = ???
+    def weeks(weeks: Int*): Schedule =
+      Schedule { instant =>
+        weeks.contains(instant.get(java.time.temporal.ChronoField.ALIGNED_WEEK_OF_MONTH))
+      }
 
     /**
      * EXERCISE 6
@@ -392,7 +440,10 @@ object pricing_fetcher {
      * Create a constructor for Schedule that models fetching on specific days
      * of the week.
      */
-    def daysOfTheWeek(daysOfTheWeek: DayOfWeek*): Schedule = ???
+    def daysOfTheWeek(daysOfTheWeek: DayOfWeek*): Schedule =
+      Schedule { instant =>
+        daysOfTheWeek.map(_.toOrdinal).contains(instant.get(java.time.temporal.ChronoField.DAY_OF_WEEK))
+      }
 
     /**
      * EXERCISE 7
@@ -400,7 +451,10 @@ object pricing_fetcher {
      * Create a constructor for Schedule that models fetching on specific
      * hours of the day.
      */
-    def hoursOfTheDay(hours: Int*): Schedule = ???
+    def hoursOfTheDay(hours: Int*): Schedule =
+      Schedule { instant =>
+        hours.contains(instant.get(java.time.temporal.ChronoField.HOUR_OF_DAY))
+      }
 
     /**
      * EXERCISE 8
@@ -408,7 +462,13 @@ object pricing_fetcher {
      * Create a constructor for Schedule that models fetching on specific minutes
      * of the hour.
      */
-    def minutesOfTheHour(minutes: Int*): Schedule = ???
+    def minutesOfTheHour(minutes: Int*): Schedule =
+      Schedule { instant =>
+        minutes.contains(instant.get(java.time.temporal.ChronoField.MINUTE_OF_HOUR))
+      }
+
+    def timeOfDay(hour: Int, minute: Int): Schedule =
+      Schedule.hoursOfTheDay(hour) intersection Schedule.minutesOfTheHour(minute)
   }
 
   /**
@@ -417,5 +477,113 @@ object pricing_fetcher {
    * Create a schedule that repeats every Wednesday, at 6:00 AM and 12:00 PM,
    * and at 5:30, 6:30, and 7:30 every Thursday.
    */
-  lazy val schedule: Schedule = ???
+  lazy val schedule: Schedule = {
+    val wednesdaySchedule =
+      Schedule.daysOfTheWeek(Wednesday) &&
+        (Schedule.timeOfDay(6, 0) || Schedule.timeOfDay(12, 0))
+    val thurdaySchedule =
+      Schedule.daysOfTheWeek(Thursday) &&
+        (Schedule.timeOfDay(5, 30) || Schedule.timeOfDay(6, 30) || Schedule.timeOfDay(7, 30))
+    wednesdaySchedule || thurdaySchedule
+  }
+}
+
+// Executable versus a declarative encoding
+//  - Executable: implementation is a function
+//  - Declarative: separate description of what we want to do from evaluation of it
+
+// Patterns in the operators we define
+//   // thinking about common patters for operators and how they may apply to your data types
+
+// Best practices for design
+
+// Exercises
+
+// 1. Exercise 1 - calculate the value of numbers
+// 2. Tell me how many terms are involved in a numeric expression
+      // +, -, *, intermediate value
+
+      // (1 + 2) * 3
+// 3. Pretty print each of these numeric expressions
+
+object Executable extends App {
+
+  // Shorter!
+  // Simpler!
+  // In the absence of optimizations, this is going to be faster
+
+  final case class Number(value: Int, terms: Int, render: String) { self =>
+    def +(that: Number): Number =
+      Number(self.value + that.value, self.terms + that.terms + 1, s"(${self.render} + ${that.render})")
+    def *(that: Number): Number =
+      Number(self.value * that.value, self.terms + that.terms + 1, s"(${self.render} * ${that.render})")
+    def -(that: Number): Number =
+      Number(self.value - that.value, self.terms + that.terms + 1, s"(${self.render} - ${that.render})")
+  }
+
+  object Number {
+    def apply(value: Int): Number =
+      Number(value, 1, value.toString)
+  }
+
+  val number = (Number(1) + Number(2)) * Number(3) - Number(4)
+  println(number.value)
+  println(number.render)
+  println(number.terms)
+}
+
+object Declarative extends App {
+
+  // Introspectable
+  // Optimization
+  // Easier to represent as data
+
+  // Subtraction(Addition(Number(4), Number(5)), Number(5))
+
+  sealed trait Number { self =>
+    def +(that: Number): Number =
+      Number.Addition(self, that)
+    def *(that: Number): Number =
+      Number.Multiplication(self, that)
+    def -(that: Number): Number =
+      Number.Subtraction(self, that)
+    def value: Int =
+      self match {
+        case Number.Addition(left, right) => left.value + right.value
+        case Number.Multiplication(left, right) => left.value * right.value
+        case Number.Subtraction(left, right) => left.value - right.value
+        case Number.Literal(value) => value
+      }
+    def render: String =
+      self match {
+        case Literal(n) => n.toString
+        case Addition(left, right) => s"(${left.render} + ${right.render})"
+        case Multiplication(left, right) => s"(${left.render} * ${right.render})"
+        case Subtraction(left, right) => s"(${left.render} - ${right.render})"
+      }
+  }
+
+    def terms(number: Number): Int =
+      number match {
+        case Literal(n) => 1
+        case Addition(left, right) => left.terms + right.terms + 1
+        case Multiplication(left, right) => left.terms + right.terms + 1
+        case Subtraction(left, right) => left.terms + right.terms + 1
+      }
+
+  object Number {
+
+    def apply(n: Int): Number =
+      Literal(n)
+
+    final case class Literal(n: Int) extends Number
+    final case class Addition(left: Number, right: Number) extends Number
+    final case class Multiplication(left: Number, right: Number) extends Number
+    final case class Subtraction(left: Number, right: Number) extends Number
+  }
+
+  val number = (Number(1) + Number(2)) * Number(3) - Number(4)
+  println(number.value)
+  println(number.render)
+  println(number.terms)
 }

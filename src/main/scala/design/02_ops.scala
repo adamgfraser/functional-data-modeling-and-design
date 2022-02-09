@@ -1,5 +1,7 @@
 package design
 
+import scala.util.control.NonFatal
+
 /*
  * INTRODUCTION
  *
@@ -32,6 +34,21 @@ package design
  */
 object input_stream {
   import java.io.InputStream
+  import java.io.BufferedInputStream
+
+  // 1. Data type
+  //   - IStream
+  //   - Solution of how to load streaming data in a functional way
+
+  // 2. Constructors
+  // empty
+
+  // 3. Operators on that data type
+  // Binary
+  // ++ (concatenation)
+  // orElse
+  // unary operator
+  // buffered
 
   final case class IStream(createInputStream: () => InputStream) { self =>
 
@@ -43,7 +60,25 @@ object input_stream {
      * exhausted, it will close the first input stream, make the second
      * input stream, and continue reading from the second one.
      */
-    def ++(that: => IStream): IStream = ???
+    def ++(that: => IStream): IStream =
+      IStream { () =>
+        new InputStream {
+          var currentInputStream: InputStream = null
+          def read(): Int = {
+            if (currentInputStream == null) {
+              currentInputStream = self.createInputStream()
+            }
+            val result = currentInputStream.read()
+            if (result == -1) {
+              currentInputStream.close()
+              currentInputStream = that.createInputStream()
+              read()
+            } else {
+              result
+            }
+          }
+        }
+      }
 
     /**
      * EXERCISE 2
@@ -52,7 +87,14 @@ object input_stream {
      * try to create the first input stream, but if that fails by throwing
      * an exception, it will then try to create the second input stream.
      */
-    def orElse(that: => IStream): IStream = ???
+    def orElse(that: => IStream): IStream =
+      IStream { () =>
+        try {
+          self.createInputStream()
+        } catch {
+          case _: Throwable => that.createInputStream()
+        }
+      }
 
     /**
      * EXERCISE 3
@@ -61,7 +103,10 @@ object input_stream {
      * create the input stream, but wrap it in Java's `BufferedInputStream`
      * before returning it.
      */
-    def buffered: IStream = ???
+    def buffered: IStream =
+      IStream { () =>
+        new BufferedInputStream(self.createInputStream())
+      }
   }
   object IStream {
 
@@ -81,11 +126,12 @@ object input_stream {
    * EXERCISE 4
    *
    * Construct an IStream that will read the data from `primary`,
-   * but if that fails, it will assemble the data from all the 
+   * but if that fails, it will assemble the data from all the
    * `fragments` by concatenating them into one. Regardless of
    * where the data comes from, everything should be buffered.
    */
-  lazy val allData: IStream = ???
+  lazy val allData: IStream =
+    primary.orElse(fragments.foldLeft(IStream.empty)(_ ++ _)).buffered
 
   lazy val primary: IStream         = ???
   lazy val fragments: List[IStream] = ???
@@ -101,6 +147,21 @@ object email_filter {
   final case class Address(emailAddress: String)
   final case class Email(sender: Address, to: List[Address], subject: String, body: String)
 
+  // 1. Data type
+  // EmailFilter
+  // solution for determining whether we should take an action based on an e-mail
+
+  // 2. Constructors
+    // sender, recipient, subject, body
+
+  // 3. Operators on that data type
+    // unary operators
+      // !
+    // binary operators
+      // &&
+      // ||
+
+
   final case class EmailFilter(matches: Email => Boolean) { self =>
 
     /**
@@ -109,7 +170,10 @@ object email_filter {
      * Add an "and" operator that will match an email if both the first and
      * the second email filter match the email.
      */
-    def &&(that: EmailFilter): EmailFilter = ???
+    def &&(that: EmailFilter): EmailFilter =
+      EmailFilter { email =>
+        self.matches(email) && that.matches(email)
+      }
 
     /**
      * EXERCISE 2
@@ -117,7 +181,10 @@ object email_filter {
      * Add an "or" operator that will match an email if either the first or
      * the second email filter match the email.
      */
-    def ||(that: EmailFilter): EmailFilter = ???
+    def ||(that: EmailFilter): EmailFilter =
+      EmailFilter { email =>
+        self.matches(email) || that.matches(email)
+      }
 
     /**
      * EXERCISE 3
@@ -125,7 +192,8 @@ object email_filter {
      * Add a "negate" operator that will match an email if this email filter
      * does NOT match an email.
      */
-    def unary_! : EmailFilter = ???
+    def unary_! : EmailFilter =
+      EmailFilter(email => !self.matches(email))
   }
   object EmailFilter {
     def senderIs(address: Address): EmailFilter = EmailFilter(_.sender == address)
@@ -145,7 +213,10 @@ object email_filter {
    * addressed to "john@doe.com". Build this filter up compositionally
    * by using the defined constructors and operators.
    */
-  lazy val emailFilter1 = ???
+  lazy val emailFilter1 =
+    EmailFilter.subjectContains("discount") &&
+      EmailFilter.bodyContains("N95") &&
+      !EmailFilter.recipientIs(Address("john@doe.com"))
 }
 
 /**
@@ -388,6 +459,13 @@ object ui_events {
     def addListener(listener: Listener): Unit
   }
 
+  // Data type - Listener type
+  // Solution to the problem of how to react to game events and provide user output
+
+  // Constructors - given for us for this exercise
+
+  // Operators - for us to implement
+
   final case class Listener(onEvent: GameEvent => Unit) { self =>
 
     /**
@@ -396,7 +474,11 @@ object ui_events {
      * Add a method `+` that composes two listeners into a single listener,
      * by sending each game event to both listeners.
      */
-    def +(that: Listener): Listener = ???
+    def +(that: Listener): Listener =
+      Listener { gameEvent =>
+        self.onEvent(gameEvent)
+        that.onEvent(gameEvent)
+      }
 
     /**
      * EXERCISE 2
@@ -405,7 +487,14 @@ object ui_events {
      * by sending each game event to either the left listener, if it does not
      * throw an exception, or the right listener, if the left throws an exception.
      */
-    def orElse(that: Listener): Listener = ???
+    def orElse(that: Listener): Listener =
+      Listener { gameEvent =>
+        try {
+          self.onEvent(gameEvent)
+        } catch {
+          case t: Throwable => that.onEvent(gameEvent)
+        } 
+      }
 
     /**
      * EXERCISE 3
@@ -413,7 +502,14 @@ object ui_events {
      * Add a `runOn` operator that returns a Listener that will call this one's
      * `onEvent` callback on the specified `ExecutionContext`.
      */
-    def runOn(ec: scala.concurrent.ExecutionContext): Listener = ???
+    def runOn(ec: scala.concurrent.ExecutionContext): Listener =
+      Listener { gameEvent =>
+        ec.execute {
+          new Runnable {
+            def run(): Unit = self.onEvent(gameEvent)
+          }
+        }
+      }
 
     /**
      * EXERCISE 4
@@ -421,7 +517,11 @@ object ui_events {
      * Add a `debug` unary operator that will call the `onEvent` callback, but
      * before it does, it will print out the game event to the console.
      */
-    def debug: Listener = ???
+    def debug: Listener =
+      Listener { gameEvent =>
+        println(gameEvent)
+        self.onEvent(gameEvent)
+      }
   }
 
   /**
@@ -431,7 +531,10 @@ object ui_events {
    * listeners in response to each game event, making the gfxUpdateListener
    * run on the `uiExecutionContext`, and debugging the input events.
    */
-  lazy val solution = ???
+  lazy val solution =
+    (twinkleAnimationListener +
+      motionDetectionListener +
+      gfxUpdateListener.runOn(uiExecutionContext)).debug
 
   lazy val twinkleAnimationListener: Listener = ???
   lazy val motionDetectionListener: Listener  = ???
@@ -439,6 +542,85 @@ object ui_events {
 
   lazy val uiExecutionContext: scala.concurrent.ExecutionContext = ???
 }
+
+final case class Configuration(
+  width: Int,
+  height: Int,
+  title: String,
+  fullscreen: Boolean,
+  vsync: Boolean
+)
+
+// 1. Data type
+  // Configuration builder
+  // Represents the solution to the problem of how to build configuration information=
+    // in an incremental way
+
+// 2. Contructors
+  //   - empty
+
+// 3. Operators
+  // Unary operators
+    // - setWidth
+    // - setHeight
+    // - setTitle
+    // - setFullscreen
+    // - setVsync
+
+  // Binary operators
+
+    // merging configuration builders?
+
+// sealed abstract case class ConfigurationBuilder private (private val run: Map[ConfigurationLabel, Any] => Configuration) {
+//   def setWidth(width: Int): ConfigurationBuilder =
+//     new ConfigurationBuilder { map =>
+//       run(map + (ConfigurationLabel.Width -> width))
+//     }
+//   def setHeight(height: Int): ConfigurationBuilder =
+//     new ConfigurationBuilder { map =>
+//       run(map + (ConfigurationLabel.Height -> height))
+//     }
+//   def setTitle(title: String): ConfigurationBuilder =
+//     new ConfigurationBuilder { map =>
+//       run(map + (ConfigurationLabel.Title -> title))
+//     }
+//   def setFullscreen(boolean: Boolean): ConfigurationBuilder =
+//     new ConfigurationBuilder { map =>
+//       run(map + (ConfigurationLabel.Fullscreen -> boolean))
+//     }
+//   def setVsync(boolean: Boolean): ConfigurationBuilder =
+//     new ConfigurationBuilder { map =>
+//       run(map + (ConfigurationLabel.VSync -> boolean))
+//     }
+// }
+
+// import zio.Chunk
+
+// object ConfigurationBuilder {
+//   val empty: ConfigurationBuilder =
+//     new ConfigurationBuilder(_ => Configuration(0, 0, "", false, false)) {}
+// }
+
+// sealed trait ConfigurationLabel
+// object ConfigurationLabel {
+//   case object Width extends ConfigurationLabel
+//   case object Height extends ConfigurationLabel
+//   case object Title extends ConfigurationLabel
+//   case object Fullscreen extends ConfigurationLabel
+//   case object Vsync extends ConfigurationLabel
+// }
+
+// object Example {
+
+//   val configuration: Configuration =
+//     ConfigurationBuilder.empty
+//       .setWidth(1024)
+//       .setHeight(768)
+//       .setTitle("Hello World")
+//       .setFullscreen(true)
+//       .setVsync(true)
+//       .build
+// }
 
 /**
  * EDUCATION - GRADUATION PROJECT

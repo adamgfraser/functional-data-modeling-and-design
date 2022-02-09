@@ -6,7 +6,7 @@ package fdm
  * between different types. For example, all dogs are animals, and this fact can be encoded using
  * subtyping in any programming language that supports the feature.
  */
-object subtyping {
+object subtyping extends App {
   trait Animal
   trait Dog       extends Animal
   trait Cat       extends Animal
@@ -16,13 +16,66 @@ object subtyping {
   type IsSubtypeOf[A, B >: A]
   type IsSupertypeOf[A, B <: A]
 
+  val fido: Dog = new Dog {}
+  val evidence = implicitly[Dog <:< Animal]
+  val fido2 = evidence(fido)
+
+  // values
+  // types
+
+  val x: Int = 1
+
+  // 1 + 1
+  // Int + Int
+
+  // subtyping represents an "is a" relationship
+  // if A "is a" B then A is a subtype of B
+  // a subtype has all the properties / capabilities of the supertype
+  // I can use an A any place that a B is expected
+
+  def isSubtype[A, B](implicit ev: A <:< B): Unit = {
+    println("isSubtype debug: " + ev) // isSubtype debug: generalized constraint
+    ()
+  }
+
+  def isSupertype[A, B](implicit ev: B <:< A): Unit =
+    ()
+
+  def isSameType[A, B](implicit ev: A <:< B, ev2: B <:< A): Unit =
+    ()
+
+  // val x = 1
+  val y = x
+
+  // Map[Type, Value]
+
+  // val z = implicitly[Int]
+  // println(z)
+
+  type MyFancyDog = Dog
+
+  isSubtype[Dog, Animal] // okay
+  // isSubtype[Animal, Dog] // does not compile
+  isSupertype[Animal, Dog] // okay
+  // isSupertype[Dog, Animal] // does not compile
+  // isSameType[Dog, Animal] // does not compile
+  isSameType[Dog, Dog] // okay
+  isSameType[Dog, MyFancyDog]
+
+//   [error] /Users/adamfraser/functional-data-modeling-and-design/src/main/scala/data/08-variance.scala:28:12: Cannot prove that fdm.subtyping.Animal <:< fdm.subtyping.Dog.
+// [error]   isSubtype[Animal, Dog]
+
+  // Talk about <:< and >:> =:= and all these other weird symbols
+
   /**
    * EXERCISE 1
    *
    * Determine the relationship between `Animal` and `Dog`, and encode that using either
    * `IsSubtypeOf` or `IsSupertypeOf`.
    */
-  type Exercise1 = TODO
+  type Exercise1 = IsSupertypeOf[Animal, Dog] // type level
+  isSupertype[Animal, Dog] // value level
+  // implicits are a way of translating from the type level to the value level
 
   /**
    * EXERCISE 2
@@ -31,6 +84,7 @@ object subtyping {
    * either `IsSubtypeOf` or `IsSupertypeOf`.
    */
   type Exercise2 = TODO
+  isSubtype[Dog, Animal]
 
   /**
    * EXERCISE 3
@@ -39,6 +93,7 @@ object subtyping {
    * `IsSubtypeOf` or `IsSupertypeOf`.
    */
   type Exercise3 = TODO
+  isSubtype[Cat, Animal]
 
   /**
    * EXERCISE 4
@@ -58,12 +113,34 @@ object subtyping {
    * In this exercise, use the right type operator such that the examples that should compile do
    * compile, but the examples that should not compile do not compile.
    */
-  def isInstanceOf[A, B](a: A): Unit = ???
+  def isInstanceOf[A, B >: A](a: A): Unit = ???
 
   lazy val mustCompile1    = isInstanceOf[Ripley.type, Dog](Ripley)
   lazy val mustCompile2    = isInstanceOf[Midnight.type, Cat](Midnight)
-  lazy val mustNotCompile1 = isInstanceOf[Ripley.type, Cat](Ripley)
-  lazy val mustNotCompile2 = isInstanceOf[Midnight.type, Dog](Midnight)
+  // lazy val mustNotCompile1 = isInstanceOf[Ripley.type, Cat](Ripley)
+  // lazy val mustNotCompile2 = isInstanceOf[Midnight.type, Dog](Midnight)
+
+  // Variance is how the subtyping relationship for a parameterized type relates to the type it is parameterized on
+
+  trait Box[A]
+
+  isSubtype[Cat, Animal] // true
+
+  // Int and String
+  
+  // Box[Cat], Box[Animal]
+  // isSubtype[Box[Cat], Box[Animal]] // false!
+  // isSubtype[Box[Animal], Box[Cat]] // false!
+
+  trait CovariantBox[+A]
+
+  isSubtype[CovariantBox[Cat], CovariantBox[Animal]] // true
+  // isSubtype[CovariantBox[Animal], CovariantBox[Cat]] // false!
+
+  trait ContravariantBox[-A]
+
+    // isSubtype[CovariantBox[Cat], CovariantBox[Animal]] // false
+  isSubtype[ContravariantBox[Animal], ContravariantBox[Cat]] // true!
 
   /**
    * EXERCISE 6
@@ -89,13 +166,25 @@ object invariance {
   object Midnight extends Cat
   object Ripley   extends Dog
 
-  trait PetHotel[A <: Animal] {
+  trait PetHotel[-A <: Animal] {
     def book(pet: A): Unit = println(s"Booked a room for ${pet}")
   }
 
   def bookRipley(dogHotel: PetHotel[Dog]) = dogHotel.book(Ripley)
 
   def bookMidnight(catHotel: PetHotel[Cat]) = catHotel.book(Midnight)
+
+  // PetHotel[A] is a hotel that can take care of pets of type A.
+  // PetHotel[Animal]
+  // PetHotel[Dog] is a more specialized hotel that can only take care of dogs
+
+  // I need a pet hotel for dogs (because I have a dog)
+
+  // PetHotel[Animal]
+  // PetHotel[Dog]
+
+  // Dog <:< Animal
+  // PetHotel[Animal] <:< PetHotel[Dog]
 
   /**
    * EXERCISE 1
@@ -105,7 +194,10 @@ object invariance {
    *
    * Take note of your findings.
    */
-  def bookMidnightAndRipley(animalHotel: PetHotel[Animal]): Unit = ???
+  def bookMidnightAndRipley(animalHotel: PetHotel[Animal]): Unit = {
+    bookRipley(animalHotel)
+    bookMidnight(animalHotel)
+  }
 
   trait PetDeliveryService[A <: Animal] {
     def acceptDelivery: A
@@ -156,9 +248,68 @@ object covariance {
    * `A` never occurs as input to any method on `PetDeliveryService` (it occurs only as output of
    * the `acceptDelivery` method).
    */
-  trait PetDeliveryService[A <: Animal] {
-    def acceptDelivery: A
+  trait PetDeliveryService[+A <: Animal] {
+    def acceptDelivery: A // A appears as an output
+                          // PetDeliveryService "contains" an A or "produces" an A
   }
+
+  trait PetHotel[-A <: Animal] {
+    def book(pet: A): Unit = println(s"Booked a room for ${pet}") // A appears an an input
+                                                                  // PetHotel "consumes" an A
+  }
+
+  // contravariant type A occurs in covariant position in type (json: String): A of method decode
+
+  trait JSONDecoder[+A] {
+    def decode(json: String): A
+  }
+
+  trait JSONEncoder[-A] {
+    def encode(a: A): String
+  }
+
+  // covariant type A occurs in contravariant position in type A of value a
+  // [error]     def encode(a: A): String
+
+  // Covariant = A appears as an output and never as an input
+  // Contravariant = A appears as an input and never as an ouput
+
+  final case class JSONCodec[A](encoder: JSONEncoder[A], decoder: JSONDecoder[A])
+
+// [error] /Users/adamfraser/functional-data-modeling-and-design/src/main/scala/data/08-variance.scala:280:16:
+//   covariant type A occurs in contravariant position in type fdm.covariance.MyList[A] of value that
+// [error]     def concat(that: MyList[A]): MyList[A] =
+
+  sealed trait MyList[+A] {
+    def concat[A1 >: A](that: MyList[A1]): MyList[A1] =
+      this match {
+        case MyList.MyNil() => that
+        case MyList.MyCons(h, t) => MyList.MyCons(h, t concat that)
+      }
+
+    // def widen[B >: A]: MyList[B] =
+    //   this match {
+    //     case MyList.MyNil() => MyList.MyNil()
+    //     case MyList.MyCons(h, t) => MyList.MyCons(h, t widen)
+    //   }
+  }
+
+  object MyList {
+    final case class MyNil[A]() extends MyList[A]
+    final case class MyCons[A](head: A, tail: MyList[A]) extends MyList[A]
+  }
+
+  val cats: MyList[Cat] = MyList.MyCons(Midnight, MyList.MyNil())
+  val dogs: MyList[Dog] = MyList.MyCons(Ripley, MyList.MyNil())
+
+  val catsAndDogs: MyList[Animal] = cats concat dogs
+
+  // Cat <:< Animal
+  // Delivery[Animal]
+  // Delivery[Cat]
+
+  // Cat <:< Animal
+  // DeliveryService[Cat] <:< DeliveryService[Animal]
 
   def acceptRipley(delivery: PetDeliveryService[Ripley.type]): Ripley.type = delivery.acceptDelivery
 
@@ -176,7 +327,11 @@ object covariance {
    *
    * Take note of your findings.
    */
-  def acceptRipleyDogAnimal(delivery: PetDeliveryService[Ripley.type]): Unit = ???
+  def acceptRipleyDogAnimal(delivery: PetDeliveryService[Ripley.type]): Unit = {
+    acceptRipley(delivery)
+    // acceptDog(delivery)
+    // acceptAnimal(delivery)
+  }
 
   /**
    * EXERCISE 3
@@ -208,6 +363,9 @@ object contravariance {
   object Midnight extends Cat
   object Ripley   extends Dog
 
+  // Pet Hotel as something that can "handle" pets of type A
+  // Does a PetHotel[Animal] have all the capabilities of a PetHotel[Cat]?
+
   /**
    * EXERCISE 1
    *
@@ -215,7 +373,7 @@ object contravariance {
    * never occurs as output from any method on `PetHotel` (it occurs only as input to the `book`
    * method).
    */
-  trait PetHotel[A <: Animal] {
+  trait PetHotel[-A <: Animal] {
     def book(pet: A): Unit = println(s"Booked a room for ${pet}")
   }
 
@@ -257,6 +415,23 @@ object contravariance {
  * declared as covariant or contravariant (or invariant).
  */
 object variance_zeros {
+
+  // Covariant data type - A is an output or value "contained"
+  // Nothing means no output or value contained
+
+  // Contravariant data type - A is an input
+  // Any means can accept "any" input - means doesn't do anything with that input
+
+  // type ZIO[-R, +E, +A] = R => Either[E, A]
+  // ZIO[Any, E, A]
+
+  // type ZIO[R, E, Nothing] = ???
+
+
+  // Either[E, Nothing] - has to be a failure
+
+  val myList: List[Nothing] =
+    List.empty
 
   /**
    * EXERCISE 1

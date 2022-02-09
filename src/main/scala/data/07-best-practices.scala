@@ -40,7 +40,23 @@ object eliminate_intersection {
      * user events OR device events (but NOT both), and which permits events that have timestamps
      * or lack timestamps; but which always have event ids.
      */
-    type Event = TODO
+    sealed trait Event {
+      def eventId: String
+      // def timestamp: Option[java.time.Instant]
+    }
+
+    object Event {
+      final case class UserEvent(eventId: String, userId: String, timestamp: Option[java.time.Instant]) extends Event
+      final case class DeviceEvent(eventId: String, deviceId: String, timestamp: Option[java.time.Instant])
+          extends Event
+    }
+
+    // val myEvent: Event = ???
+    // myEvent.eventId
+    // myEvent match {
+    //   case Event.UserEvent(eventId, userId, timestamp) => eventId
+    //   case Event.DeviceEvent(eventId, deviceId, timestamp) => eventId
+    // }
   }
 }
 
@@ -56,6 +72,8 @@ object eliminate_intersection {
  */
 object extract_product {
 
+  // Either[(A, B), (A, C)] = (A, Either[B, C])
+
   /**
    * EXERCISE 1
    *
@@ -65,11 +83,13 @@ object extract_product {
    * introduce a new field called `eventType`, which captures event-specific details for the
    * different event types.
    */
-  sealed trait AdvertisingEvent
-  object AdvertisingEvent {
-    final case class Impression(pageUrl: String, data: String)                 extends AdvertisingEvent
-    final case class Click(pageUrl: String, elementId: String, data: String)   extends AdvertisingEvent
-    final case class Action(pageUrl: String, actionName: String, data: String) extends AdvertisingEvent
+  final case class AdvertisingEvent(pageUrl: String, data: String, eventType: EventType)
+
+  sealed trait EventType
+  object EventType {
+    case object Impression                      extends EventType
+    final case class Click(elementId: String)   extends EventType
+    final case class Action(actionName: String) extends EventType
   }
 
   /**
@@ -80,12 +100,22 @@ object extract_product {
    * case class, and introduce a new field called `cardType`, which captures card-specific details
    * for the different event types.
    */
-  sealed trait Card
-  object Card {
-    final case class Clubs(points: Int)    extends Card
-    final case class Diamonds(points: Int) extends Card
-    final case class Spades(points: Int)   extends Card
-    final case class Hearts(points: Int)   extends Card
+  // sealed trait Card
+  // object Card {
+  //   final case class Clubs(points: Int)    extends Card
+  //   final case class Diamonds(points: Int) extends Card
+  //   final case class Spades(points: Int)   extends Card
+  //   final case class Hearts(points: Int)   extends Card
+  // }
+
+  final case class Card(points: Int, cardType: CardType)
+
+  sealed trait CardType
+  object CardType {
+    case object Clubs    extends CardType
+    case object Diamonds extends CardType
+    case object Spades   extends CardType
+    case object Hearts   extends CardType
   }
 
   /**
@@ -111,7 +141,6 @@ object extract_product {
  */
 object extract_sum {
   final case class Job(title: String, salary: Double)
-
   final case class Enrollment(university: String, credits: Int, year: java.time.YearMonth)
 
   /**
@@ -119,12 +148,32 @@ object extract_sum {
    *
    * Extract out a missing enumeration from the following data type.
    */
-  final case class Person(
-    name: String,
-    job: Option[Job],                                // employed
-    employmentDate: Option[java.time.LocalDateTime], // if employed
-    school: Option[Enrollment]                       // full-time student
-  )
+  // final case class Person(
+  //   name: String,
+  //   job: Option[Job],                                // employed
+  //   employmentDate: Option[java.time.LocalDateTime], // if employed
+  //   school: Option[Enrollment]                       // full-time student
+  // )
+
+  final case class Person(name: String, status: EmploymentStatus, educationalStatus: EducationalStatus)
+
+  sealed trait EmploymentStatus
+
+  object EmploymentStatus {
+    case object Unemployed              extends EmploymentStatus
+    final case class Employed(job: Job) extends EmploymentStatus
+  }
+
+  sealed trait EducationalStatus
+
+  object EducationalStatus {
+    case object NotInSchool                          extends EducationalStatus
+    final case class Student(enrollment: Enrollment) extends EducationalStatus
+  }
+
+  // Full time worker or student
+  // Full time worker or part time worker / student or student
+  // Employmentstatus and educationStatus
 
   /**
    * EXERCISE 2
@@ -145,12 +194,28 @@ object extract_sum {
    *
    * Extract out a missing enumeration from the following data type.
    */
-  final case class CreditCard(
-    digit16: Option[Digit16],      // For VISA
-    digit15: Option[Digit15],      // For AMEX
-    securityCode3: Option[Digit3], // For AMEX
-    securityCode4: Option[Digit4]  // For VISA
-  )
+  // final case class CreditCard(
+  //   digit16: Option[Digit16],      // For VISA
+  //   digit15: Option[Digit15],      // For AMEX
+  //   securityCode3: Option[Digit3], // For AMEX
+  //   securityCode4: Option[Digit4]  // For VISA
+  // )
+
+  sealed trait CreditCard
+
+  object CreditCard {
+    sealed abstract class VISA private (digit16: Digit16, securityCode4: Digit4) extends CreditCard
+
+    object VISA {
+      def checkSum(digit16: Digit16): Boolean = ???
+      def make(digit16: Digit16, securityCode4: Digit4): Either[String, VISA] =
+        if (checkSum(digit16)) Right(new VISA(digit16, securityCode4) {})
+        else Left("Invalid checksum")
+    }
+    sealed abstract class AMEX private (digit15: Digit15, securityCode3: Digit3) extends CreditCard
+  }
+
+  val adamsCreditCardNumber = ???
 
   final case class Digit16(group1: Digit4, group2: Digit4, group3: Digit4, group4: Digit4)
 
@@ -192,8 +257,9 @@ object eliminate_wildcard {
    */
   def pageDeveloper(event: Event, onCall: Phone): Unit =
     event match {
-      case Event.ServerDown => sendText(onCall, "The server is down, please look into it right away!")
-      case _                =>
+      case Event.ServerDown       => sendText(onCall, "The server is down, please look into it right away!")
+      case Event.ServiceRestarted =>
+      case Event.BillingOverage   => ???
     }
 
   /**
@@ -206,6 +272,7 @@ object eliminate_wildcard {
   object Event {
     case object ServerDown       extends Event
     case object ServiceRestarted extends Event
+    case object BillingOverage   extends Event
   }
 }
 
@@ -219,11 +286,9 @@ object eliminate_wildcard {
  */
 object eliminate_typecase {
   sealed trait Event
-  sealed trait IdentifiedEvent extends Event {
-    def id: String
-  }
+
   final case class Click(href: String)                extends Event
-  final case class Purchase(id: String, item: String) extends IdentifiedEvent
+  final case class Purchase(id: String, item: String) extends Event
 
   /**
    * EXERCISE 1
@@ -232,8 +297,8 @@ object eliminate_typecase {
    */
   def logIdentifiedEvents(event: Event): Unit =
     event match {
-      case identified: IdentifiedEvent => println("User event: " + identified.id)
-      case _                           =>
+      case Purchase(id, _) => println("User event: " + id)
+      case Click(_)        =>
     }
 
 }
@@ -257,7 +322,7 @@ object nested_shadowing {
   def count[A](list: List[A]): Int =
     list match {
       case Nil       => 0
-      case _ :: tail => 1 + count(list)
+      case _ :: list => 1 + count(list)
     }
 
   sealed trait UserBehavior
@@ -284,8 +349,8 @@ object nested_shadowing {
       case Anything => false
       case Sequence(first, second) =>
         analyzePattern(first) || analyzePattern(second)
-      case Not(value) =>
-        analyzePattern(b)
+      case Not(b) =>
+        !analyzePattern(b)
     }
 }
 
@@ -306,7 +371,6 @@ object delete_empty {
    */
   sealed trait Currency
   object Currency {
-    case object None                               extends Currency
     final case class USD(dollars: Int, cents: Int) extends Currency
     final case class EUR(euros: Int, cents: Int)   extends Currency
   }
@@ -318,7 +382,6 @@ object delete_empty {
    */
   sealed trait DataSource
   object DataSource {
-    case object NoSource                                                extends DataSource
     final case class S3(bucket: String)                                 extends DataSource
     final case class JDBC(url: String, properties: Map[String, String]) extends DataSource
   }
