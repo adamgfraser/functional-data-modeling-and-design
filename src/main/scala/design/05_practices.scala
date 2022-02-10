@@ -32,6 +32,7 @@ package design
  *
  */
 
+
 /**
  * ORTHOGONALITY - EXERCISE SET 1
  */
@@ -53,38 +54,37 @@ object email_filter3 {
   sealed trait EmailFilter { self =>
     def &&(that: EmailFilter): EmailFilter = EmailFilter.And(self, that)
 
-    def ||(that: EmailFilter): EmailFilter = EmailFilter.InclusiveOr(self, that)
+    def ||(that: EmailFilter): EmailFilter =
+      !(!self && !that)
 
-    def ^^(that: EmailFilter): EmailFilter = EmailFilter.ExclusiveOr(self, that)
+    def ^^(that: EmailFilter): EmailFilter =
+      (self || that) && !(self && that)
+    
+    def unary_! : EmailFilter = EmailFilter.Not(self)
   }
   object EmailFilter {
     final case object Always                                            extends EmailFilter
-    final case object Never                                             extends EmailFilter
     final case class And(left: EmailFilter, right: EmailFilter)         extends EmailFilter
-    final case class InclusiveOr(left: EmailFilter, right: EmailFilter) extends EmailFilter
-    final case class ExclusiveOr(left: EmailFilter, right: EmailFilter) extends EmailFilter
-    final case class SenderEquals(target: Address)                      extends EmailFilter
-    final case class SenderNotEquals(target: Address)                   extends EmailFilter
-    final case class RecipientEquals(target: Address)                   extends EmailFilter
-    final case class RecipientNotEquals(target: Address)                extends EmailFilter
+    final case class Not(filter: EmailFilter)                           extends EmailFilter
     final case class SenderIn(targets: Set[Address])                    extends EmailFilter
     final case class RecipientIn(targets: Set[Address])                 extends EmailFilter
     final case class BodyContains(phrase: String)                       extends EmailFilter
-    final case class BodyNotContains(phrase: String)                    extends EmailFilter
     final case class SubjectContains(phrase: String)                    extends EmailFilter
-    final case class SubjectNotContains(phrase: String)                 extends EmailFilter
 
     val always: EmailFilter = Always
 
-    val never: EmailFilter = Always
+    // always && x === x
+    // never || x === x
 
-    def senderIs(sender: Address): EmailFilter = SenderEquals(sender)
+    val never: EmailFilter = !always
 
-    def senderIsNot(sender: Address): EmailFilter = SenderNotEquals(sender)
+    def senderIs(sender: Address): EmailFilter = senderIn(Set(sender))
 
-    def recipientIs(recipient: Address): EmailFilter = RecipientEquals(recipient)
+    def senderIsNot(sender: Address): EmailFilter = !senderIs(sender)
 
-    def recipientIsNot(recipient: Address): EmailFilter = RecipientNotEquals(recipient)
+    def recipientIs(recipient: Address): EmailFilter = recipientIn(Set(recipient))
+
+    def recipientIsNot(recipient: Address): EmailFilter = !recipientIs(recipient)
 
     def senderIn(senders: Set[Address]): EmailFilter = SenderIn(senders)
 
@@ -92,18 +92,18 @@ object email_filter3 {
 
     def bodyContains(phrase: String): EmailFilter = BodyContains(phrase)
 
-    def bodyDoesNotContain(phrase: String): EmailFilter = BodyNotContains(phrase)
+    def bodyDoesNotContain(phrase: String): EmailFilter = !bodyContains(phrase)
 
     def subjectContains(phrase: String): EmailFilter = SubjectContains(phrase)
 
-    def subjectDoesNotContain(phrase: String): EmailFilter = SubjectNotContains(phrase)
+    def subjectDoesNotContain(phrase: String): EmailFilter = !subjectContains(phrase)
   }
 }
 
 /**
  * COMPOSABILITY - EXERCISE SET 2
  */
-object ui_components {
+object ui_components extends App {
 
   /**
    * EXERCISE 1
@@ -111,15 +111,111 @@ object ui_components {
    * The following API is not composable—there is no domain. Introduce a
    * domain with elements, constructors, and composable operators.
    */
-  trait Turtle { self =>
-    def turnLeft(degrees: Int): Unit
+  // trait Turtle { self =>
+  //   def turnLeft(degrees: Int): Unit
 
-    def turnRight(degrees: Int): Unit
+  //   def turnRight(degrees: Int): Unit
 
-    def goForward(): Unit
+  //   def goForward(): Unit
 
-    def goBackward(): Unit
+  //   def goBackward(): Unit
 
-    def draw(): Unit
+  //   def draw(): Unit
+  // }
+
+  sealed trait Turtle { self =>
+
+    def >>>(that: Turtle): Turtle =
+      andThen(that)
+
+    def andThen(that: Turtle): Turtle =
+      Turtle.AndThen(self, that)
   }
+
+  object Turtle {
+    case object DoNothing extends Turtle
+    final case class AndThen(first: Turtle, second: Turtle) extends Turtle
+    final case class Turn(degrees: Int) extends Turtle
+    final case object Go extends Turtle
+
+    val go: Turtle =
+      Go
+
+    val doNothing: Turtle =
+      DoNothing
+
+    val goBackward: Turtle =
+      turnAround andThen go
+
+    lazy val turnAround: Turtle =
+      turnRight(180)
+
+    def turnLeft(degrees: Int): Turtle =
+      turnRight(360 - degrees)
+
+    def turnRight(degrees: Int): Turtle =
+      Turn(degrees)
+  }
+
+  val turtles: List[Turtle] = ???
+
+  turtles.foldLeft(Turtle.doNothing)(_ >>> _)
+
+  // if (turtles.isEmpty) println("No turtles")
+  // else turtles.reduce(_ >>> _).draw()
+
+  val turnRight = Turtle.Turn(90)
+  val go = Turtle.Go
+
+  val myTurtle: Turtle = (turnRight >>> go >>> (turnRight >>> go)) >>> turnRight
+
+  // go >>> turnLeft
+  // turnLeft >>> go
+
+  final case class State(x: Int, y: Int, theta: Int)
+
+  object State {
+    val origin: State = State(0, 0, 0)
+  }
+
+  final case class Canvas(values: Vector[Vector[Boolean]])
+
+  def draw(turtle: Turtle): Unit = {
+
+    def loop(turtle: Turtle, state: State): State = {
+      turtle match {
+        case Turtle.AndThen(first, second) =>
+          val updatedState = loop(first, state)
+          loop(second, updatedState)
+        case Turtle.Turn(degrees) =>
+          println(s"The turtle turned $degrees degrees")
+          state.copy(theta = (state.theta + degrees) % 360)
+        case Turtle.Go =>
+          println("The turtle moved forward one pixel")
+          state
+        case Turtle.DoNothing =>
+          state
+      }
+    }
+
+    loop(turtle, State.origin)
+  }
+
+  println(myTurtle)
+  draw(myTurtle)
+
+  // AndThen(Turn(90),Go)
+
+  // coordinates
+  // direction
+
+  // draw
+
+  // 1. Data type that represents the solution to some problem
+  // Constructors
+  // Operators
+    // Binary operators - (data types, data type) => data type
+    // composability
+    // Emailfilter combine emailfilter ==> emailfilter
+
 }

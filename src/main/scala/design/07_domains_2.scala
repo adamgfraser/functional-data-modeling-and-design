@@ -639,18 +639,85 @@ object data_processing {
   object Transformation       {}
 }
 
-object resources {
+object resources extends App {
+
+  // resource1 = opening a network connnection
+  // resource2 = opening a file on the remote server
+
+  // val resource: Resource[File] = for {
+  //   connnection <- openConnection
+  //   file        <- openFile(connnection)
+  // } yield file
+
+  // open the connection
+  // open the file
+  // close the file
+  // close the connection
+
   /**
-    * EXERCISE 1
-    * 
-    * Design a data type that can model a resource. The data type should be 
-    * equipped with operators, which allow transforming and composing 
-    * resources. You can use either the declarative or executable encodings.
-    */
-  trait Resource[+A] {
-    def use[B](f: A => B): B = ???
+   * EXERCISE 1
+   *
+   * Design a data type that can model a resource. The data type should be
+   * equipped with operators, which allow transforming and composing
+   * resources. You can use either the declarative or executable encodings.
+   */
+  final case class Resource[+A](acquire: () => A, release: Any => Any) { self =>
+    def flatMap[B](f: A => Resource[B]): Resource[B] =
+      ???
+    def map[B](f: A => B): Resource[B] =
+      Resource(() => f(acquire()), release)
+    def orElse[A1 >: A](that: => Resource[A1]): Resource[A1] =
+      orElseEither(that).map(_.merge)
+    def orElseEither[B](that: Resource[B]): Resource[Either[A, B]] =
+      Resource(
+        () =>
+          try {
+            Left(self.acquire())
+          } catch {
+            case _: Throwable => Right(that.acquire())
+          }, {
+          case Left(a)  => self.release(a)
+          case Right(b) => that.release(b)
+        }
+      )
+    def use[B](f: A => B): B = {
+      val a = acquire()
+      try f(a)
+      finally release(a)
+    }
+    def zip[B](that: Resource[B]): Resource[(A, B)] =
+      self.flatMap(a => that.map(b => (a, b)))
+    def zipWith[B, C](that: Resource[B])(f: (A, B) => C): Resource[C] =
+      self.zip(that).map(f.tupled)
   }
   object Resource {
-    def make[A](acquire: => A, release: A => Any): Resource[A] = ???
+    def make[A](acquire: => A, release: A => Any): Resource[A] =
+      Resource(() => acquire, release.asInstanceOf[Any => Any])
+    def succeed[A](value: A): Resource[A] =
+      make(value, (_: Any) => ())
   }
+
+  def simpleResource(name: String): Resource[String]         =
+    Resource.make(
+      {
+        println(s"acquiring $name")
+        name
+      },
+      (s: String) => println(s"releasing: $s")
+    )
+  val resource1: Resource[String] = simpleResource("resource1")
+  val resource2: Resource[String] = simpleResource("resource2")
+  val resource3 =
+    resource1.flatMap(_ => resource2)
+  
+  resource3.use { _ =>
+    println("using resources!")
+  }
+
+  // 1. Data type that represents the solution to some problem in our domain
+  // Resource
+  // Solution to problem of safely managing resources in a composable way
+  // 2. Simple constructors for that data type
+  // Resource.make
+  // 3. Operators for combining that data type into more complex solutions
 }

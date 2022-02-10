@@ -1,15 +1,15 @@
 package design
-import design.pricing_fetcher.DayOfWeek.Sunday
-import design.pricing_fetcher.DayOfWeek.Monday
-import design.pricing_fetcher.DayOfWeek.Tuesday
-import design.pricing_fetcher.DayOfWeek.Wednesday
-import design.pricing_fetcher.DayOfWeek.Thursday
-import design.pricing_fetcher.DayOfWeek.Friday
-import design.pricing_fetcher.DayOfWeek.Saturday
 import design.Declarative.Number.Literal
 import design.Declarative.Number.Addition
 import design.Declarative.Number.Multiplication
 import design.Declarative.Number.Subtraction
+import design.pricing_fetcher2.Schedule.Union
+import design.pricing_fetcher2.Schedule.Intersection
+import design.pricing_fetcher2.Schedule.Negate
+import design.pricing_fetcher2.Schedule.Weeks
+import design.pricing_fetcher2.Schedule.DaysOfTheWeek
+import design.pricing_fetcher2.Schedule.HoursOfTheDay
+import design.pricing_fetcher2.Schedule.MinutesOfTheHour
 
 /*
  * INTRODUCTION
@@ -336,7 +336,9 @@ object etl {
  * on Wednesdays). The business considers it acceptable to create the schedules in
  * code (rather than reading them from a database).
  */
-object pricing_fetcher {
+object pricing_fetcher extends App {
+  import DayOfWeek._
+
   def fetch(directory: java.io.File, url: java.net.URL, schedule: Schedule): Unit = ???
 
   sealed trait DayOfWeek { self =>
@@ -369,6 +371,11 @@ object pricing_fetcher {
   // Constructors
 
   // Operators
+
+  def year(n: Int): Schedule =
+    Schedule { instant =>
+      instant.get(java.time.temporal.ChronoField.YEAR) == n  
+    }
 
   /**
    * EXERCISE 1
@@ -486,6 +493,13 @@ object pricing_fetcher {
         (Schedule.timeOfDay(5, 30) || Schedule.timeOfDay(6, 30) || Schedule.timeOfDay(7, 30))
     wednesdaySchedule || thurdaySchedule
   }
+
+  lazy val answer = println(schedule.run(java.time.Instant.now))
+
+  // Schedule(design.pricing_fetcher$Schedule$$Lambda$6901/0x0000000800be3040@66689e43)
+
+  println(schedule)
+  // println(answer)
 }
 
 // Executable versus a declarative encoding
@@ -501,9 +515,9 @@ object pricing_fetcher {
 
 // 1. Exercise 1 - calculate the value of numbers
 // 2. Tell me how many terms are involved in a numeric expression
-      // +, -, *, intermediate value
+// +, -, *, intermediate value
 
-      // (1 + 2) * 3
+// (1 + 2) * 3
 // 3. Pretty print each of these numeric expressions
 
 object Executable extends App {
@@ -549,41 +563,230 @@ object Declarative extends App {
       Number.Subtraction(self, that)
     def value: Int =
       self match {
-        case Number.Addition(left, right) => left.value + right.value
+        case Number.Addition(left, right)       => left.value + right.value
         case Number.Multiplication(left, right) => left.value * right.value
-        case Number.Subtraction(left, right) => left.value - right.value
-        case Number.Literal(value) => value
+        case Number.Subtraction(left, right)    => left.value - right.value
+        case Number.Literal(value)              => value
       }
     def render: String =
       self match {
-        case Literal(n) => n.toString
-        case Addition(left, right) => s"(${left.render} + ${right.render})"
+        case Literal(n)                  => n.toString
+        case Addition(left, right)       => s"(${left.render} + ${right.render})"
         case Multiplication(left, right) => s"(${left.render} * ${right.render})"
-        case Subtraction(left, right) => s"(${left.render} - ${right.render})"
+        case Subtraction(left, right)    => s"(${left.render} - ${right.render})"
       }
   }
 
-    def terms(number: Number): Int =
-      number match {
-        case Literal(n) => 1
-        case Addition(left, right) => left.terms + right.terms + 1
-        case Multiplication(left, right) => left.terms + right.terms + 1
-        case Subtraction(left, right) => left.terms + right.terms + 1
-      }
+  def terms(number: Number): Int =
+    number match {
+      case Literal(n)                  => 1
+      case Addition(left, right)       => terms(left) + terms(right) + 1
+      case Multiplication(left, right) => terms(left) + terms(right) + 1
+      case Subtraction(left, right)    => terms(left) + terms(right) + 1
+    }
 
   object Number {
 
     def apply(n: Int): Number =
       Literal(n)
 
-    final case class Literal(n: Int) extends Number
-    final case class Addition(left: Number, right: Number) extends Number
+    final case class Literal(n: Int)                             extends Number
+    final case class Addition(left: Number, right: Number)       extends Number
     final case class Multiplication(left: Number, right: Number) extends Number
-    final case class Subtraction(left: Number, right: Number) extends Number
+    final case class Subtraction(left: Number, right: Number)    extends Number
   }
 
   val number = (Number(1) + Number(2)) * Number(3) - Number(4)
   println(number.value)
   println(number.render)
-  println(number.terms)
+  println(terms(number))
+}
+
+/**
+ * REAL ESTATE APP - GRADUATION PROJECT
+ *
+ * Consider a real estate app that must regularly fetch third-party pricing data
+ * according to specified schedules. These schedules can be quite complicated,
+ * although they possess regular structure (e.g. every fifth Tuesday, and hourly
+ * on Wednesdays). The business considers it acceptable to create the schedules in
+ * code (rather than reading them from a database).
+ */
+object pricing_fetcher2 extends App {
+  import DayOfWeek._
+
+  // How to implement a declarative encoding?
+  // First answer is be super lazy!
+  // Replace implementations with new constructors
+  // if we had a case class before we will end up turning into a sealed trait
+  // each of the cases of the sealed trait are going to correspond to an operator or constructor
+
+  def fetch(directory: java.io.File, url: java.net.URL, schedule: Schedule): Unit = ???
+
+  sealed trait DayOfWeek { self =>
+    def toOrdinal: Int =
+      self match {
+        case Monday    => 1
+        case Tuesday   => 2
+        case Wednesday => 3
+        case Thursday  => 4
+        case Friday    => 5
+        case Saturday  => 6
+        case Sunday    => 7
+      }
+  }
+  object DayOfWeek {
+    case object Sunday    extends DayOfWeek
+    case object Monday    extends DayOfWeek
+    case object Tuesday   extends DayOfWeek
+    case object Wednesday extends DayOfWeek
+    case object Thursday  extends DayOfWeek
+    case object Friday    extends DayOfWeek
+    case object Saturday  extends DayOfWeek
+  }
+
+  final case class Time(minuteOfHour: Int, hourOfDay: Int, dayOfWeek: DayOfWeek, weekOfMonth: Int, monthOfYear: Int)
+
+  // Data type - Schedule
+  // Solution to the problem of whether to do some action at a certain time
+
+  // Constructors
+
+  // Operators
+
+  /**
+   * EXERCISE 1
+   *
+   * `Schedule` is a data type that models a schedule, which has the ability to
+   * indicate whether at any given `java.time.Instant`, it is time to fetch the
+   * pricing data set.
+   */
+  sealed trait Schedule { self =>
+
+    def run(instant: java.time.Instant): Boolean =
+      self match {
+        case Union(left, right) =>
+          left.run(instant) || right.run(instant)
+        case Intersection(left, right) =>
+          left.run(instant) && right.run(instant)
+        case Negate(schedule) =>
+          !schedule.run(instant)
+        case Weeks(weeks) =>
+          weeks.contains(instant.get(java.time.temporal.ChronoField.ALIGNED_WEEK_OF_MONTH))
+        case DaysOfTheWeek(daysOfTheWeek) =>
+          daysOfTheWeek.map(_.toOrdinal).contains(instant.get(java.time.temporal.ChronoField.DAY_OF_WEEK))
+        case HoursOfTheDay(hours) =>
+          hours.contains(instant.get(java.time.temporal.ChronoField.HOUR_OF_DAY))
+        case MinutesOfTheHour(minutes) =>
+          minutes.contains(instant.get(java.time.temporal.ChronoField.MINUTE_OF_HOUR))
+      }
+
+    /*
+     * EXERCISE 2
+     *
+     * Create an operator for schedule that allows composing two schedules to
+     * yield the union of those schedules. That is, the fetch will occur
+     * only when either of the schedules would have performed a fetch.
+     */
+    def union(that: Schedule): Schedule =
+      Schedule.Union(self, that)
+
+    def ||(that: Schedule): Schedule =
+      union(that)
+
+    /**
+     * EXERCISE 3
+     *
+     * Create an operator for schedule that allows composing two schedules to
+     * yield the intersection of those schedules. That is, the fetch will occur
+     * only when both of the schedules would have performed a fetch.
+     */
+    def intersection(that: Schedule): Schedule =
+      Schedule.Intersection(self, that)
+
+    def &&(that: Schedule): Schedule =
+      intersection(that)
+
+    /**
+     * EXERCISE 4
+     *
+     * Create a unary operator that returns a schedule that will never fetch
+     * when the original schedule would fetch, and will always fetch when the
+     * original schedule would not fetch.
+     */
+    def negate: Schedule =
+      Schedule.Negate(self)
+  }
+
+  object Schedule {
+
+    // declarative encoding
+    // much more extensible for new ways to analyze the data
+    // less extensible is defining new "primitives"
+
+    final case class Union(left: Schedule, right: Schedule)        extends Schedule
+    final case class Intersection(left: Schedule, right: Schedule) extends Schedule
+    final case class Negate(schedule: Schedule)                    extends Schedule
+    final case class Weeks(weeks: List[Int])                       extends Schedule
+    final case class DaysOfTheWeek(daysOfTheWeek: List[DayOfWeek]) extends Schedule
+    final case class HoursOfTheDay(hours: List[Int])               extends Schedule
+    final case class MinutesOfTheHour(minutes: List[Int])          extends Schedule
+
+    /**
+     * EXERCISE 5
+     *
+     * Create a constructor for Schedule that models fetching on specific weeks
+     * of the month.
+     */
+    def weeks(weeks: Int*): Schedule =
+      Schedule.Weeks(weeks.toList)
+
+    /**
+     * EXERCISE 6
+     *
+     * Create a constructor for Schedule that models fetching on specific days
+     * of the week.
+     */
+    def daysOfTheWeek(daysOfTheWeek: DayOfWeek*): Schedule =
+      Schedule.DaysOfTheWeek(daysOfTheWeek.toList)
+
+    /**
+     * EXERCISE 7
+     *
+     * Create a constructor for Schedule that models fetching on specific
+     * hours of the day.
+     */
+    def hoursOfTheDay(hours: Int*): Schedule =
+      Schedule.HoursOfTheDay(hours.toList)
+
+    /**
+     * EXERCISE 8
+     *
+     * Create a constructor for Schedule that models fetching on specific minutes
+     * of the hour.
+     */
+    def minutesOfTheHour(minutes: Int*): Schedule =
+      Schedule.MinutesOfTheHour(minutes.toList)
+
+    def timeOfDay(hour: Int, minute: Int): Schedule =
+      Schedule.hoursOfTheDay(hour) && Schedule.minutesOfTheHour(minute)
+  }
+
+  /**
+   * EXERCISE 9
+   *
+   * Create a schedule that repeats every Wednesday, at 6:00 AM and 12:00 PM,
+   * and at 5:30, 6:30, and 7:30 every Thursday.
+   */
+  lazy val schedule: Schedule = {
+    val wednesdaySchedule =
+      Schedule.daysOfTheWeek(Wednesday) &&
+        (Schedule.timeOfDay(6, 0) || Schedule.timeOfDay(12, 0))
+    val thurdaySchedule =
+      Schedule.daysOfTheWeek(Thursday) &&
+        (Schedule.timeOfDay(5, 30) || Schedule.timeOfDay(6, 30) || Schedule.timeOfDay(7, 30))
+    wednesdaySchedule || thurdaySchedule
+  }
+
+  println(schedule)
+
 }

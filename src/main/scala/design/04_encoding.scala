@@ -1,4 +1,9 @@
 package design
+import design.email_filter2.EmailFilter.Negate
+import design.email_filter2.EmailFilter.SubjectContains
+import design.email_filter2.EmailFilter.BodyContains
+import design.email_filter2.EmailFilter.SenderIn
+import design.email_filter2.EmailFilter.RecipientIn
 
 /*
  * INTRODUCTION
@@ -174,7 +179,8 @@ object email_filter2 {
      * Add an "and" operator that models matching an email if both the first and
      * the second email filter match the email.
      */
-    def &&(that: EmailFilter): EmailFilter = ???
+    def &&(that: EmailFilter): EmailFilter =
+      EmailFilter.&&(self, that)
 
     /**
      * EXERCISE 2
@@ -182,7 +188,8 @@ object email_filter2 {
      * Add an "or" operator that models matching an email if either the first or
      * the second email filter match the email.
      */
-    def ||(that: EmailFilter): EmailFilter = ???
+    def ||(that: EmailFilter): EmailFilter =
+      EmailFilter.||(self, that)
 
     /**
      * EXERCISE 3
@@ -190,9 +197,18 @@ object email_filter2 {
      * Add a "negate" operator that models matching an email if this email filter
      * does NOT match an email.
      */
-    def negate: EmailFilter = ???
+    def negate: EmailFilter =
+      EmailFilter.Negate(self)
   }
   object EmailFilter {
+
+    final case class &&(left: EmailFilter, right: EmailFilter) extends EmailFilter
+    final case class ||(left: EmailFilter, right: EmailFilter) extends EmailFilter
+    final case class Negate(filter: EmailFilter) extends EmailFilter
+    final case class SubjectContains(string: String) extends EmailFilter
+    final case class BodyContains(string: String) extends EmailFilter
+    final case class SenderIn(senders: Set[Address]) extends EmailFilter
+    final case class RecipientIn(recipients: Set[Address]) extends EmailFilter
 
     /**
      * EXERCISE 4
@@ -200,7 +216,8 @@ object email_filter2 {
      * Add a constructor for `EmailFilter` that models looking to see if the
      * subject of an email contains the specified word.
      */
-    def subjectContains(string: String): EmailFilter = ???
+    def subjectContains(string: String): EmailFilter =
+      EmailFilter.SubjectContains(string)
 
     /**
      * EXERCISE 5
@@ -208,7 +225,8 @@ object email_filter2 {
      * Add a constructor for `EmailFilter` that models looking to see if the
      * body of an email contains the specified word.
      */
-    def bodyContains(string: String): EmailFilter = ???
+    def bodyContains(string: String): EmailFilter =
+      EmailFilter.BodyContains(string)
 
     /**
      * EXERCISE 6
@@ -216,7 +234,8 @@ object email_filter2 {
      * Add a constructor for `EmailFilter` that models looking to see if the
      * sender of an email is in the specified set of senders.
      */
-    def senderIn(senders: Set[Address]): EmailFilter = ???
+    def senderIn(senders: Set[Address]): EmailFilter =
+      EmailFilter.SenderIn(senders)
 
     /**
      * EXERCISE 7
@@ -224,7 +243,8 @@ object email_filter2 {
      * Add a constructor for `EmailFilter` that models looking to see if the
      * recipient of an email is in the specified set of recipients.
      */
-    def recipientIn(recipients: Set[Address]): EmailFilter = ???
+    def recipientIn(recipients: Set[Address]): EmailFilter =
+      EmailFilter.RecipientIn(recipients)
   }
 
   /**
@@ -234,7 +254,15 @@ object email_filter2 {
    * into tests on the specified email.
    */
   def matches(filter: EmailFilter, email: Email): Boolean =
-    ???
+    filter match {
+      case EmailFilter.&&(left, right) => matches(left, email) && matches(right, email)
+      case EmailFilter.||(left, right) => matches(left, email) || matches(right, email)
+      case Negate(filter) => !matches(filter, email)
+      case SubjectContains(string) => email.subject.contains(string)
+      case BodyContains(string) => email.body.contains(string)
+      case SenderIn(senders) => senders.contains(email.sender)
+      case RecipientIn(recipients) => recipients.intersect(email.to.toSet).nonEmpty
+    }
 
   /**
    * EXERCISE 9
@@ -242,7 +270,8 @@ object email_filter2 {
    * Implement a function to make an English-readable description of an
    * `EmailFilter`.
    */
-  def describe(filter: EmailFilter): Unit = ???
+  def describe(filter: EmailFilter): Unit =
+    println(filter)
 }
 
 /**

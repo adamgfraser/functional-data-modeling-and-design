@@ -431,7 +431,7 @@ object variance_zeros {
   // Either[E, Nothing] - has to be a failure
 
   val myList: List[Nothing] =
-    List.empty
+    ???
 
   /**
    * EXERCISE 1
